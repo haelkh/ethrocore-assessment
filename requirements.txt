@@ -1,0 +1,13 @@
+accelerate>=0.33.0
+datasets>=2.19.0
+numpy>=1.24.0
+peft>=0.13.0
+pocket-tts>=0.1.0
+scipy>=1.10.0
+sentencepiece>=0.2.0
+soundfile>=0.12.1
+torch>=2.5.0
+transformers>=4.44.0
+tqdm>=4.66.0
+unsloth>=2024.12.5
+unsloth_zoo>=2024.12.5
