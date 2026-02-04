@@ -6,7 +6,16 @@ import torch
 import soundfile as sf
 from tqdm import tqdm
 
-from pocket_tts import TTSModel
+try:
+    from pocket_tts import TTSModel
+except ModuleNotFoundError:
+    import sys
+    from pathlib import Path as _Path
+
+    local_repo = _Path(__file__).parent / "_pocket-tts"
+    if local_repo.exists():
+        sys.path.insert(0, str(local_repo))
+    from pocket_tts import TTSModel
 from scipy.signal import resample_poly
 
 

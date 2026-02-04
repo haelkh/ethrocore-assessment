@@ -3,3 +3,5 @@ __pycache__/
 data/
 checkpoints/
 _pocket-tts/
+checkpoints_diac/
+checkpoints_diac_arabizi/

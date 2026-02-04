@@ -51,6 +51,7 @@ def main() -> None:
     parser.add_argument("--target-sr", type=int, default=24000)
     parser.add_argument("--max-samples", type=int, default=50)
     parser.add_argument("--streaming", action="store_true")
+    parser.add_argument("--keep-diacritics", action="store_true", help="Keep short vowels/tanween for better prosody")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -68,8 +69,8 @@ def main() -> None:
             raw_text = sample.get("text", "").strip()
             if not raw_text:
                 continue
-            text_norm = normalize_arabic(raw_text)
-            text_romanized = simple_latin_transliterate(text_norm)
+            text_norm = normalize_arabic(raw_text, keep_diacritics=args.keep_diacritics)
+            text_romanized = simple_latin_transliterate(text_norm, keep_diacritics=args.keep_diacritics)
 
             audio, orig_sr = _extract_audio(sample)
             audio = _to_mono(audio)

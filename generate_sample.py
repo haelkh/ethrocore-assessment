@@ -21,6 +21,16 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--text", default="\u0645\u0631\u062d\u0628\u0627 \u0628\u0643\u0645 \u0641\u064a \u0639\u0627\u0644\u0645 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a.")
     parser.add_argument("--output", default="samples/generated_arabic.wav")
+    parser.add_argument(
+        "--append-translit",
+        action="store_true",
+        help="Append model text to the filename (e.g., generated_mar7aban_bkm.wav).",
+    )
+    parser.add_argument(
+        "--no-arabizi",
+        action="store_true",
+        help="Use letter-only transliteration (h for ح) instead of Arabizi numbers (7 for ح, 3 for ع).",
+    )
     parser.add_argument("--checkpoint", default=None)
     parser.add_argument("--voice", default="samples/reference.wav")
     parser.add_argument("--romanize", action="store_true", help="Force Buckwalter-style transliteration.")
@@ -74,23 +84,29 @@ def main() -> None:
 
     original_text = args.text
     text = original_text
+    arabizi = not args.no_arabizi
     readable = buckwalter_transliterate(normalize_arabic(original_text))
+    # For display: use Arabizi numbers unless disabled
+    display_latin = simple_latin_transliterate(
+        original_text, keep_diacritics=True, use_arabizi_numbers=arabizi
+    )
     # Keep inference aligned with training: training data used simple_latin_transliterate.
     def is_arabic(s: str) -> bool:
         return any("\u0600" <= ch <= "\u06FF" for ch in s)
 
     if args.latinize:
-        text = simple_latin_transliterate(text)
+        text = simple_latin_transliterate(text, use_arabizi_numbers=arabizi)
     elif args.romanize:
         text = buckwalter_transliterate(normalize_arabic(text))
     elif not args.no_auto_transliterate and is_arabic(text):
-        text = simple_latin_transliterate(normalize_arabic(text))
+        text = simple_latin_transliterate(normalize_arabic(text), use_arabizi_numbers=arabizi)
 
     # Log the resolved text so it's visible in the terminal
     print(f"Input text: {original_text}")
     if text != original_text:
         print(f"Model text: {text}")
     print(f"Readable (buckwalter): {readable}")
+    print(f"Readable (latinized): {display_latin}")
 
     audio = model.generate_audio(
         voice_state, text, frames_after_eos=args.frames_after_eos, copy_state=True
@@ -100,6 +116,10 @@ def main() -> None:
         if peak > 0:
             audio = audio / peak * 0.95
     output_path = Path(args.output)
+    if args.append_translit:
+        stem = output_path.stem
+        safe_text = text.replace(" ", "_").replace("/", "_").replace("\\", "_")
+        output_path = output_path.with_name(f"{stem}_{safe_text}{output_path.suffix}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     sf.write(output_path, audio.squeeze().numpy(), model.sample_rate)
     print(f"Wrote {output_path}")
