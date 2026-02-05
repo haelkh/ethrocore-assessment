@@ -29,7 +29,15 @@ Download and normalize the ClArTTS dataset. We explicitly **keep diacritics** to
 python data_prep.py --output-dir data/processed_arabizi --keep-diacritics
 ```
 
-### 3.2 Training
+### 3.2 Optimization: Pre-computing Latents (Optional)
+
+To speed up training by avoiding repetitive encoding, pre-compute the Mimi latents:
+
+```bash
+python extract_latents.py --metadata data/processed_arabizi/metadata.jsonl --output-dir data/latents
+```
+
+### 3.3 Training
 
 Fine-tune the model using **LoRA (Low-Rank Adaptation)** and **Gradient Accumulation** for stability.
 This configuration saves checkpoints and evaluates every 500 steps.
@@ -41,6 +49,7 @@ This configuration saves checkpoints and evaluates every 500 steps.
 - Training Scope: Text Embeddings + Flow Network
 
 ```bash
+# Standard training (on-the-fly encoding)
 python train.py \
   --metadata data/processed_arabizi/metadata.jsonl \
   --checkpoint-dir checkpoints_diac_arabizi \
@@ -53,9 +62,20 @@ python train.py \
   --lora-rank 8 \
   --lora-alpha 16 \
   --lora-dropout 0.05
+
+# OR if using pre-computed latents (faster):
+python train.py \
+  --metadata data/latents/metadata_latents.jsonl \
+  --checkpoint-dir checkpoints_diac_latents \
+  --use-precomputed-latents \
+  --train-scope text+flow \
+  --batch-size 8 \
+  --grad-accum 1 \
+  --use-lora \
+  --lora-rank 8
 ```
 
-### 3.3 Generation
+### 3.4 Generation
 
 Generate samples using a trained checkpoint. The `--latinize` flag ensures the input text is romanized using the same strategy (Arabizi) as the training data.
 

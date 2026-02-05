@@ -49,7 +49,8 @@ I reverse-engineered a custom training loop, as Pocket TTS lacks a public traini
 - **Optimization**:
   - **LoRA (Low-Rank Adaptation)**: I applied LoRA to the linear layers of the FlowLM to enable efficient fine-tuning with minimal VRAM.
   - **Gradient Accumulation**: I implemented this to simulate larger batch sizes (effective batch size of 32) for training stability.
-  - **Scope**: I fine-tuned both the text conditioning embedding (to adapt to Arabizi tokens) and the Flow weights (to learn Arabic prosody).
+    - **Scope**: I fine-tuned both the text conditioning embedding (to adapt to Arabizi tokens) and the Flow weights (to learn Arabic prosody).
+    - **Latents Pre-computation**: To accelerate training, I implemented an optional strategy to pre-encode all audio files into Mimi latents (`extract_latents.py`). This removes the heavy lifting of running the Mimi Encoder during the training loop, significantly speeding up epochs.
 
 ## 6. Usage Guide & Reproducibility
 
@@ -82,7 +83,29 @@ python train.py \
   --lora-dropout 0.05
 ```
 
-### 6.3 Inference (Generation)
+### 6.3 Speed Optimization: Pre-computing Latents (Optional)
+
+To significantly speed up training (by avoiding re-running the Mimi Encoder every step), I run the latent extraction script first:
+
+```bash
+python extract_latents.py --metadata data/processed_arabizi/metadata.jsonl --output-dir data/latents
+```
+
+Then, I point the training script to the new metadata and enable the **precomputed latents** flag:
+
+```bash
+python train.py \
+  --metadata data/latents/metadata_latents.jsonl \
+  --checkpoint-dir checkpoints_diac_latents \
+  --use-precomputed-latents \
+  --train-scope text+flow \
+  --batch-size 8 \
+  --grad-accum 1 \
+  --use-lora \
+  --lora-rank 8
+```
+
+### 6.4 Inference (Generation)
 
 Generate a sample using the best checkpoint (e.g., step 3500). I force **Latinization** (Arabizi) to match the training data format and append transliteration to the filename for easy inspection.
 
