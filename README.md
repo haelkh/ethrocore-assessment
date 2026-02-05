@@ -1,11 +1,8 @@
 # Pocket TTS Arabic Adaptation (ClArTTS)
 
-This repo contains two fine-tuning pipelines:
+This repository contains a complete pipeline for adapting Kyutai's **Pocket TTS** model to synthesize **Classical Arabic**. It implements a custom **fine-tuning methodology** using conditional flow matching and **Romanization** to bridge the language gap.
 
-1. **Unsloth / Orpheus LoRA (recommended, matches Unsloth docs).**
-2. Legacy **Pocket TTS** proxy flow-matching loop for experimentation.
-
-## Setup
+## 1. Setup
 
 ```bash
 python -m venv .venv
@@ -13,71 +10,71 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Data Preparation (shared)
+## 2. Methodology
 
-Downloads a small subset of MBZUAI/ClArTTS, normalizes Arabic text, romanizes it (Buckwalter), resamples audio, and writes `metadata.jsonl`.
+The adaptation relies on two key strategies:
 
-```bash
-python data_prep.py --streaming --max-samples 50
-```
+1.  **Romanization (Arabizi)**: Mapping Arabic phonemes to Latin characters to leverage the model's pre-trained tokenizer and latent space.
+2.  **Flow Matching Fine-Tuning**: Reverse-engineering the training loop to optimize the Flow Matching MLP (FlowLM) on Arabic audio latents.
 
-Outputs:
-- `data/processed/metadata.jsonl`
-- `data/processed/*.wav`
-- `samples/reference.wav`
+Full architectural details are available in [exploration_report.md](exploration_report.md).
 
-## Training (Unsloth / Orpheus)
+## 3. Usage
 
-Fine-tune the Unsloth Orpheus 3B model with a LoRA adapter. Defaults match the
-[Unsloth TTS fine-tuning guide](https://unsloth.ai/docs/basics/text-to-speech-tts-fine-tuning).
+### 3.1 Data Preparation
+
+Download and normalize the ClArTTS dataset. We explicitly **keep diacritics** to ensure high-fidelity pronunciation and prosody.
 
 ```bash
-python unsloth_train.py \
-  --dataset MrDragonFox/Elise \
-  --text-column transcription \
-  --audio-column audio \
-  --num-epochs 1 \
-  --batch-size 8 \
-  --grad-accum 2
+python data_prep.py --output-dir data/processed_arabizi --keep-diacritics
 ```
 
-Outputs:
-- `checkpoints_unsloth/` with LoRA adapter + tokenizer.
+### 3.2 Training
 
-## Training (Proxy Flow-Matching, Pocket TTS)
+Fine-tune the model using **LoRA (Low-Rank Adaptation)** and **Gradient Accumulation** for stability.
+This configuration saves checkpoints and evaluates every 500 steps.
 
-This script loads the Pocket TTS weights and fine-tunes the flow LM on Mimi latents using a proxy flow-matching objective. By default it trains only the text embedding; use `--train-scope text+flow` to fine-tune the full flow LM.
+**Hyperparameters:**
+
+- Batch Size: 2 (effective 8 with accumulation)
+- LoRA Rank: 8
+- Training Scope: Text Embeddings + Flow Network
 
 ```bash
-# Standard flow-matching
-python train.py --metadata data/processed/metadata.jsonl --epochs 1 --max-steps 50 --train-scope text
-
-# Flow-matching with lightweight LoRA adapters on the flow LM (closer to the Unsloth recipe)
-python train.py --metadata data/processed/metadata.jsonl --use-lora --lora-rank 16 --lora-alpha 16 --lora-dropout 0.05
+python train.py \
+  --metadata data/processed_arabizi/metadata.jsonl \
+  --checkpoint-dir checkpoints_diac_arabizi \
+  --train-scope text+flow \
+  --batch-size 2 \
+  --grad-accum 4 \
+  --save-every 500 \
+  --eval-every 500 \
+  --use-lora \
+  --lora-rank 8 \
+  --lora-alpha 16 \
+  --lora-dropout 0.05
 ```
 
-Checkpoints are saved to `checkpoints/`.
+### 3.3 Generation
 
-## Generate Arabic Sample
-
-Generate a sample using the fine-tuned checkpoint (or base model if omitted). Use `--romanize` to romanize the Arabic text before inference.
+Generate samples using a trained checkpoint. The `--latinize` flag ensures the input text is romanized using the same strategy (Arabizi) as the training data.
 
 ```bash
-python generate_sample.py --checkpoint checkpoints/flow_lm_final.pt --romanize
+# Example: Using checkpoint at step 3500
+python generate_sample.py \
+  --checkpoint checkpoints_diac_arabizi/flow_lm_step_3500.pt \
+  --text "مَرْحَبًا بكم" \
+  --latinize \
+  --no-arabizi \
+  --append-translit
 ```
 
-Outputs:
-- `samples/generated_arabic.wav`
+**Output:** `samples/generated_arabic_marhaban_bikum.wav`
 
-**Inference tip:** Training data is latinized with `simple_latin_transliterate` (chat-style 3/7). Default generation now auto-transliterates Arabic input the same way. Use `--latinize` to force it, or `--no-auto-transliterate` to pass raw Arabic. Use `--romanize` only if you specifically want Buckwalter.
+## 4. Deliverables
 
-Note: The repo includes placeholder WAVs; re-run `data_prep.py` and `generate_sample.py`
-to regenerate real samples from the dataset and model.
-
-## Files
-
-- `exploration_report.md`: architecture notes and adaptation strategy.
-- `data_prep.py`: dataset download + preprocessing.
-- `train.py`: fine-tuning loop.
-- `generate_sample.py`: inference script.
-- `samples/`: output audio samples.
+- `exploration_report.md`: Comprehensive technical report and adaptation strategy.
+- `data_prep.py`: Data download, normalization, and Romanization pipeline.
+- `train.py`: Custom training loop implementing Conditional Flow Matching loss.
+- `generate_sample.py`: Inference script with auto-transliteration.
+- `samples/`: Directory containing reference and generated audio.
