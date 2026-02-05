@@ -19,6 +19,22 @@ The adaptation relies on two key strategies:
 
 Full architectural details are available in [exploration_report.md](exploration_report.md).
 
+### 2.1 What are we training?
+
+This is **not** teaching the model to read Arabic script. It is **fine-tuning the Flow Matching Network (FlowLM)** to learn an **Arabic accent** for Romanized text.
+
+- **The Input**: Romanized Arabic (`marhaban`).
+- **The Adjustment**: Weights are updated to map these English-compatible tokens to Arabic prosody and phonetics (throat sounds, timing) instead of American pronunciation.
+- **The Mechanism**: We modify the Flow weights that predict the _trajectory_ of audio latents in the Mimi VAE space.
+
+### 2.2 Inference Pipeline
+
+1.  **Input**: Arabic Text (`مرحبا`)
+2.  **Romanization**: Converts to `marhaban` (Arabizi).
+3.  **Conditioning**: Model sees Latin characters and retrieves standard English embeddings.
+4.  **Flow Prediction**: The fine-tuned FlowLM predicts the continuous path from noise to speech latents.
+5.  **Decoding**: Mimi VAE converts these latents into the final Arabic audio waveform.
+
 ## 3. Usage
 
 ### 3.1 Data Preparation

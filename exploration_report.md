@@ -49,8 +49,15 @@ I reverse-engineered a custom training loop, as Pocket TTS lacks a public traini
 - **Optimization**:
   - **LoRA (Low-Rank Adaptation)**: I applied LoRA to the linear layers of the FlowLM to enable efficient fine-tuning with minimal VRAM.
   - **Gradient Accumulation**: I implemented this to simulate larger batch sizes (effective batch size of 32) for training stability.
-    - **Scope**: I fine-tuned both the text conditioning embedding (to adapt to Arabizi tokens) and the Flow weights (to learn Arabic prosody).
-    - **Latents Pre-computation**: To accelerate training, I implemented an optional strategy to pre-encode all audio files into Mimi latents (`extract_latents.py`). This removes the heavy lifting of running the Mimi Encoder during the training loop, significantly speeding up epochs.
+    *   **Scope**: I fine-tuned both the text conditioning embedding (to adapt to Arabizi tokens) and the Flow weights (to learn Arabic prosody).
+    *   **Latents Pre-computation**: To accelerate training, I implemented an optional strategy to pre-encode all audio files into Mimi latents (`extract_latents.py`). This removes the heavy lifting of running the Mimi Encoder during the training loop, significantly speeding up epochs.
+
+### 5.1 What am I training exactly?
+It is crucial to understand that **I am not teaching the model a new language** (in the sense of reading Arabic script). Instead, I am teaching the English-trained model a **new accent**.
+*   **The Input**: The model sees `marhaban` (Latin characters).
+*   **The Pre-training**: The model already knows how to pronounce `m-a-r-h-a-b-a-n` in an American/British accent.
+*   **The Fine-tuning**: I am updating the **Flow Matching Network (FlowLM)** weights to say: "When you see this sequence, do not pronounce it like an American. Pronounce it with these specific Arabic phonemes, throat sounds (like 'H' vs 'h'), and timing."
+*   **The Weights**: I am strictly modifying the layers responsible for predicting the *trajectory* of the audio latents. I am effectively bending the model's existing vocal capability to fit Arabic acoustic patterns.
 
 ## 6. Usage Guide & Reproducibility
 
